@@ -1,15 +1,19 @@
 # 📦 Merch Splitter
 
-Prosta aplikacja w Streamlit do dzielenia dużego pliku XLSX na mniejsze pliki po maksymalnie 100 wierszy i pobierania ich jako ZIP.
+Prosta aplikacja w Streamlit do dzielenia dużego pliku XLSX na mniejsze pliki i pobierania ich jako ZIP.
 
 ## Co robi aplikacja
 
-- Przyjmuje plik `.xlsx` z kolumnami: `product`, `quantity`.
-- Obsługuje do `10 000` wierszy.
-- Dzieli dane na paczki po `100` wierszy.
-- Tworzy plik ZIP zawierający kolejne pliki XLSX:
-  - np. wejście `dubai 100.01.xlsx`
-  - wyjście: `dubai 100.01.xlsx`, `dubai 100.02.xlsx`, `dubai 100.03.xlsx`, ...
+Aplikacja przyjmuje plik `.xlsx` z kolumnami `product`, `quantity` (do 10 000 wierszy), a następnie umożliwia 2 tryby podziału:
+
+1. **Maks. 100 wierszy na plik** (klasyczny split na równe paczki).
+2. **Maks. suma quantity na plik** (split wg limitu ilości, np. 100 sztuk na plik).
+
+Dla nazwy wejściowej `dubai 100.01.xlsx` numeracja jest kontynuowana:
+- `dubai 100.01.xlsx`
+- `dubai 100.02.xlsx`
+- `dubai 100.03.xlsx`
+- ...
 
 ## Jak uruchomić lokalnie
 
@@ -35,4 +39,4 @@ Najprościej wrzucić repo na GitHub i podłączyć do **Streamlit Community Clo
 4. Deploy.
 5. Udostępnij link członkom zespołu.
 
-Alternatywnie możesz wdrożyć na własnym serwerze (np. Docker + reverse proxy), jeśli aplikacja ma działać tylko wewnętrznie.
+Alternatywnie możesz wdrożyć aplikację wewnętrznie (np. Docker + reverse proxy).
