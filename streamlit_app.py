@@ -1,151 +1,134 @@
-import streamlit as st
-import pandas as pd
+import io
 import math
+import zipfile
 from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
+import pandas as pd
+import streamlit as st
+
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="Merch Splitter",
+    page_icon="📦",
+    layout="centered",
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+MAX_ROWS_PER_FILE = 100
+REQUIRED_COLUMNS = ["product", "quantity"]
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize incoming column names to simplify validation."""
+    normalized = df.copy()
+    normalized.columns = [str(column).strip().lower() for column in normalized.columns]
+    return normalized
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+def validate_input(df: pd.DataFrame) -> tuple[bool, str]:
+    """Validate required columns and row constraints."""
+    missing_columns = [column for column in REQUIRED_COLUMNS if column not in df.columns]
+    if missing_columns:
+        return False, f"Brakuje wymaganych kolumn: {', '.join(missing_columns)}"
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+    if len(df) == 0:
+        return False, "Plik nie zawiera żadnych wierszy do podziału."
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    if len(df) > 10_000:
+        return False, "Plik ma więcej niż 10 000 wierszy. Podziel dane i spróbuj ponownie."
 
-    return gdp_df
+    return True, ""
 
-gdp_df = get_gdp_data()
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+def build_output_name(prefix: str, index: int) -> str:
+    return f"{prefix}.{index:02d}.xlsx"
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+def parse_name_pattern(filename: str) -> tuple[str, int]:
+    stem = Path(filename).stem.strip()
+    if not stem:
+        return "merch", 1
 
-# Add some spacing
-''
-''
+    if "." in stem:
+        maybe_prefix, maybe_number = stem.rsplit(".", 1)
+        if maybe_number.isdigit() and len(maybe_number) == 2 and maybe_prefix.strip():
+            return maybe_prefix.strip(), int(maybe_number)
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+    return stem, 1
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
 
-countries = gdp_df['Country Code'].unique()
+def split_into_zip(
+    df: pd.DataFrame,
+    prefix: str,
+    start_index: int = 1,
+    rows_per_file: int = MAX_ROWS_PER_FILE,
+) -> bytes:
+    """Split DataFrame into chunks and return ZIP bytes with XLSX files."""
+    output = io.BytesIO()
 
-if not len(countries):
-    st.warning("Select at least one country")
+    chunk_count = math.ceil(len(df) / rows_per_file)
 
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
+    with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for index in range(chunk_count):
+            chunk_start = index * rows_per_file
+            chunk_end = chunk_start + rows_per_file
+            chunk = df.iloc[chunk_start:chunk_end]
 
-''
-''
-''
+            chunk_stream = io.BytesIO()
+            chunk.to_excel(chunk_stream, index=False)
+            chunk_stream.seek(0)
 
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
+            file_name = build_output_name(prefix, start_index + index)
+            zip_file.writestr(file_name, chunk_stream.read())
 
-st.header('GDP over time', divider='gray')
+    output.seek(0)
+    return output.getvalue()
 
-''
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+st.title("📦 Merch Splitter")
+st.write(
+    "Wgraj plik XLSX z kolumnami `product` i `quantity`, a aplikacja podzieli go "
+    "na pliki po maks. 100 wierszy i przygotuje ZIP do pobrania."
 )
 
-''
-''
+uploaded_file = st.file_uploader("Wybierz plik wejściowy (.xlsx)", type=["xlsx"])
 
+if uploaded_file:
+    try:
+        raw_df = pd.read_excel(uploaded_file)
+    except Exception as error:  # noqa: BLE001
+        st.error(f"Nie udało się odczytać pliku XLSX: {error}")
+    else:
+        data = normalize_columns(raw_df)
+        valid, message = validate_input(data)
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
+        if not valid:
+            st.error(message)
         else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+            total_rows = len(data)
+            total_files = math.ceil(total_rows / MAX_ROWS_PER_FILE)
+            source_prefix, start_number = parse_name_pattern(uploaded_file.name)
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+            st.success("Plik wygląda poprawnie ✅")
+            st.caption(
+                f"Wierszy: **{total_rows}** • Plików wyjściowych: **{total_files}** "
+                f"(po maks. {MAX_ROWS_PER_FILE} wierszy)"
+            )
+
+            preview = data.head(10)
+            st.dataframe(preview, use_container_width=True)
+
+            zip_bytes = split_into_zip(
+                data,
+                source_prefix,
+                start_index=start_number,
+                rows_per_file=MAX_ROWS_PER_FILE,
+            )
+
+            st.download_button(
+                label="⬇️ Pobierz ZIP z podzielonymi plikami",
+                data=zip_bytes,
+                file_name=f"{source_prefix}.zip",
+                mime="application/zip",
+                type="primary",
+            )
+else:
+    st.info("Przykład nazwy pliku: `dubai 100.01.xlsx` → ZIP z `dubai 100.01.xlsx`, `dubai 100.02.xlsx`, itd.")
