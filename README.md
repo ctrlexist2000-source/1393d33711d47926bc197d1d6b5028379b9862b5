@@ -1,19 +1,42 @@
-# :earth_americas: GDP dashboard template
+# 📦 Merch Splitter
 
-A simple Streamlit app showing the GDP of different countries in the world.
+Prosta aplikacja w Streamlit do dzielenia dużego pliku XLSX na mniejsze pliki i pobierania ich jako ZIP.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
+## Co robi aplikacja
 
-### How to run it on your own machine
+Aplikacja przyjmuje plik `.xlsx` z kolumnami `product`, `quantity` (do 10 000 wierszy), a następnie umożliwia 2 tryby podziału:
 
-1. Install the requirements
+1. **Maks. 100 wierszy na plik** (klasyczny split na równe paczki).
+2. **Maks. suma quantity na plik** (split wg limitu ilości, np. 100 sztuk na plik).
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+Dla nazwy wejściowej `dubai 100.01.xlsx` numeracja jest kontynuowana:
+- `dubai 100.01.xlsx`
+- `dubai 100.02.xlsx`
+- `dubai 100.03.xlsx`
+- ...
 
-2. Run the app
+## Jak uruchomić lokalnie
 
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+1. Zainstaluj zależności:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Uruchom aplikację:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+## Jak udostępnić zespołowi (najszybciej)
+
+Najprościej wrzucić repo na GitHub i podłączyć do **Streamlit Community Cloud**:
+
+1. Push repo na GitHub.
+2. Wejdź na https://share.streamlit.io
+3. Wybierz repo i plik startowy `streamlit_app.py`.
+4. Deploy.
+5. Udostępnij link członkom zespołu.
+
+Alternatywnie możesz wdrożyć aplikację wewnętrznie (np. Docker + reverse proxy).
