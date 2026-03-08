@@ -202,4 +202,4 @@ if uploaded_file:
                     type="primary",
                 )
 else:
-    st.info("Example: `dubai 100.01.xlsx` → ZIP containing `dubai 100.01.xlsx`, `dubai 100.02.xlsx`, etc.")
+    st.info("Example: `test 100.01.test` → ZIP containing `test 100.01.xlsx`, `test 100.02.xlsx`, etc.")
