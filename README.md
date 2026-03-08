@@ -1,42 +1,131 @@
-# 📦 Merch Splitter
+MERCH SPLITTER
 
-Prosta aplikacja w Streamlit do dzielenia dużego pliku XLSX na mniejsze pliki i pobierania ich jako ZIP.
+A simple Streamlit application for splitting a large XLSX file into smaller files
+and downloading them as a ZIP archive.
 
-## Co robi aplikacja
+--------------------------------------------------
 
-Aplikacja przyjmuje plik `.xlsx` z kolumnami `product`, `quantity` (do 10 000 wierszy), a następnie umożliwia 2 tryby podziału:
+WHAT THE APP DOES
 
-1. **Maks. 100 wierszy na plik** (klasyczny split na równe paczki).
-2. **Maks. suma quantity na plik** (split wg limitu ilości, np. 100 sztuk na plik).
+The application accepts an .xlsx file containing two columns:
 
-Dla nazwy wejściowej `dubai 100.01.xlsx` numeracja jest kontynuowana:
-- `dubai 100.01.xlsx`
-- `dubai 100.02.xlsx`
-- `dubai 100.03.xlsx`
-- ...
+product
+quantity
 
-## Jak uruchomić lokalnie
+The file can contain up to 10,000 rows.
 
-1. Zainstaluj zależności:
+After uploading the file, the user can split the data using two modes.
 
-```bash
+1. MAX 100 ROWS PER FILE
+
+This mode splits the file into equal sized chunks with a maximum of 100 rows
+per output file.
+
+Example:
+1000 rows -> 10 files
+
+
+2. MAX QUANTITY SUM PER FILE
+
+This mode creates files so that the total sum of the "quantity" column
+inside each file does not exceed a specified limit.
+
+Example input:
+
+product   quantity
+A         40
+B         30
+C         50
+
+If the limit is 100:
+
+File 1 -> quantity sum = 70
+File 2 -> quantity sum = 50
+
+
+--------------------------------------------------
+
+FILE NAMING
+
+If the uploaded file follows this naming pattern:
+
+dubai 100.01.xlsx
+
+The numbering will continue automatically:
+
+abcd 100.01.xlsx
+test 100.02.xlsx
+example 100.03.xlsx
+...
+
+All generated files are packaged into a single ZIP archive
+that can be downloaded from the application.
+
+
+--------------------------------------------------
+
+REQUIREMENTS
+
+Python 3.9 or newer.
+
+Required Python packages:
+
+streamlit
+pandas
+openpyxl
+
+All dependencies are listed in the file:
+
+requirements.txt
+
+
+--------------------------------------------------
+
+RUNNING THE APP LOCALLY
+
+1. Install dependencies:
+
 pip install -r requirements.txt
-```
 
-2. Uruchom aplikację:
 
-```bash
+2. Start the application:
+
 streamlit run streamlit_app.py
-```
 
-## Jak udostępnić zespołowi (najszybciej)
 
-Najprościej wrzucić repo na GitHub i podłączyć do **Streamlit Community Cloud**:
+After running the command, Streamlit will open the application
+in your default web browser.
 
-1. Push repo na GitHub.
-2. Wejdź na https://share.streamlit.io
-3. Wybierz repo i plik startowy `streamlit_app.py`.
-4. Deploy.
-5. Udostępnij link członkom zespołu.
 
-Alternatywnie możesz wdrożyć aplikację wewnętrznie (np. Docker + reverse proxy).
+--------------------------------------------------
+
+DEPLOYMENT FOR A TEAM (EASIEST OPTION)
+
+The fastest way to share the app with a team is using
+Streamlit Community Cloud.
+
+Steps:
+
+1. Push the repository to GitHub.
+2. Open https://share.streamlit.io
+3. Connect your GitHub repository.
+4. Select the main file:
+
+streamlit_app.py
+
+5. Click Deploy.
+6. Share the generated link with your team.
+
+
+--------------------------------------------------
+
+ALTERNATIVE DEPLOYMENT
+
+The application can also be deployed internally using:
+
+Docker
+a virtual machine
+a reverse proxy such as Nginx or Traefik
+
+Since the project is a single Streamlit app,
+deployment is straightforward.
