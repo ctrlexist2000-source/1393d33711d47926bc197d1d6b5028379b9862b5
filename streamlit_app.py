@@ -28,13 +28,13 @@ def validate_base_input(df: pd.DataFrame) -> tuple[bool, str]:
     """Validate required columns and row constraints."""
     missing_columns = [column for column in REQUIRED_COLUMNS if column not in df.columns]
     if missing_columns:
-        return False, f"Brakuje wymaganych kolumn: {', '.join(missing_columns)}"
+        return False, f"Missing required columns: {', '.join(missing_columns)}"
 
     if len(df) == 0:
-        return False, "Plik nie zawiera żadnych wierszy do podziału."
+        return False, "The file contains no rows to split."
 
     if len(df) > MAX_INPUT_ROWS:
-        return False, f"Plik ma więcej niż {MAX_INPUT_ROWS:,} wierszy. Podziel dane i spróbuj ponownie.".replace(",", " ")
+        return False, f"The file contains more than {MAX_INPUT_ROWS:,} rows. Please split the data and try again.".replace(",", " ")
 
     return True, ""
 
@@ -44,10 +44,10 @@ def validate_quantity_column(df: pd.DataFrame) -> tuple[bool, str]:
     quantity = pd.to_numeric(df["quantity"], errors="coerce")
 
     if quantity.isna().any():
-        return False, "Kolumna `quantity` musi zawierać wyłącznie liczby."
+        return False, "Column `quantity` must contain numbers only."
 
     if (quantity < 0).any():
-        return False, "Kolumna `quantity` nie może zawierać wartości ujemnych."
+        return False, "Column `quantity` cannot contain negative values."
 
     return True, ""
 
@@ -126,34 +126,36 @@ def chunks_to_zip_bytes(chunks: list[pd.DataFrame], prefix: str, start_index: in
 
 
 st.title("📦 Merch Splitter")
+
 st.markdown(
-    "Wgraj plik XLSX z kolumnami **product** i **quantity**. "
-    "Możesz dzielić plik na:")
-st.markdown("- paczki po maks. 100 wierszy, **albo**")
-st.markdown("- paczki po maks. sumie `quantity` w każdym pliku.")
+    "Upload an XLSX file with columns **product** and **quantity**."
+)
+st.markdown("You can split the file into:")
+st.markdown("- files with max **100 rows**, **or**")
+st.markdown("- files with max **quantity sum** per file.")
 
 split_mode = st.radio(
-    "Tryb podziału",
-    options=["Maks. 100 wierszy na plik", "Maks. suma quantity na plik"],
+    "Split mode",
+    options=["Max 100 rows per file", "Max quantity sum per file"],
     index=0,
 )
 
 quantity_limit = None
-if split_mode == "Maks. suma quantity na plik":
+if split_mode == "Max quantity sum per file":
     quantity_limit = st.number_input(
-        "Maksymalna suma quantity w jednym pliku",
+        "Maximum quantity sum per file",
         min_value=1.0,
         value=100.0,
         step=1.0,
     )
 
-uploaded_file = st.file_uploader("Wybierz plik wejściowy (.xlsx)", type=["xlsx"])
+uploaded_file = st.file_uploader("Select input file (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
     try:
         raw_df = pd.read_excel(uploaded_file)
-    except Exception as error:  # noqa: BLE001
-        st.error(f"Nie udało się odczytać pliku XLSX: {error}")
+    except Exception as error:
+        st.error(f"Failed to read XLSX file: {error}")
     else:
         data = normalize_columns(raw_df)
         valid, message = validate_base_input(data)
@@ -161,7 +163,7 @@ if uploaded_file:
         if not valid:
             st.error(message)
         else:
-            if split_mode == "Maks. suma quantity na plik":
+            if split_mode == "Max quantity sum per file":
                 qty_valid, qty_message = validate_quantity_column(data)
                 if not qty_valid:
                     st.error(qty_message)
@@ -169,16 +171,16 @@ if uploaded_file:
 
             source_prefix, start_number = parse_name_pattern(uploaded_file.name)
 
-            if split_mode == "Maks. 100 wierszy na plik":
+            if split_mode == "Max 100 rows per file":
                 chunks = build_chunks_by_row_count(data, rows_per_file=MAX_ROWS_PER_FILE)
-                rule_description = f"po maks. {MAX_ROWS_PER_FILE} wierszy"
+                rule_description = f"max {MAX_ROWS_PER_FILE} rows"
             else:
                 chunks = build_chunks_by_quantity_sum(data, max_quantity_sum=float(quantity_limit))
-                rule_description = f"po maks. sumie quantity = {quantity_limit:g}"
+                rule_description = f"max quantity sum = {quantity_limit:g}"
 
-            st.success("Plik wygląda poprawnie ✅")
+            st.success("File looks valid ✅")
             st.caption(
-                f"Wierszy: **{len(data)}** • Plików wyjściowych: **{len(chunks)}** "
+                f"Rows: **{len(data)}** • Output files: **{len(chunks)}** "
                 f"({rule_description})"
             )
 
@@ -186,18 +188,18 @@ if uploaded_file:
 
             try:
                 zip_bytes = chunks_to_zip_bytes(chunks, source_prefix, start_index=start_number)
-            except Exception as error:  # noqa: BLE001
+            except Exception as error:
                 st.error(
-                    "Nie udało się zapisać plików XLSX. Upewnij się, że zależność `openpyxl` jest "
-                    f"dostępna. Szczegóły: {error}"
+                    "Failed to create XLSX files. Make sure dependency `openpyxl` is installed. "
+                    f"Details: {error}"
                 )
             else:
                 st.download_button(
-                    label="⬇️ Pobierz ZIP z podzielonymi plikami",
+                    label="⬇️ Download ZIP with split files",
                     data=zip_bytes,
                     file_name=f"{source_prefix}.zip",
                     mime="application/zip",
                     type="primary",
                 )
 else:
-    st.info("Przykład: `dubai 100.01.xlsx` → ZIP z `dubai 100.01.xlsx`, `dubai 100.02.xlsx`, itd.")
+    st.info("Example: `dubai 100.01.xlsx` → ZIP containing `dubai 100.01.xlsx`, `dubai 100.02.xlsx`, etc.")
